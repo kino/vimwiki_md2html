@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+#coding=utf-8
+import sys
+reload(sys) # Python2.5 初始化后会删除 sys.setdefaultencoding 这个方法，我们需要重新载入   
+sys.setdefaultencoding('utf-8')   
 
 """Requirements:
 python 3            for more robust unicode support
@@ -35,7 +39,7 @@ from jinja2 import Template
 
 # A basic default template to use until the vimwiki template settings are
 # fully integrated.
-template = Template("""
+template2 = Template("""
             <!DOCTYPE html>
             <html>
             <head>
@@ -67,6 +71,11 @@ template = Template("""
 
 """
 
+import sys
+#print sys.argv
+sys.argv = map(lambda x: ((x.startswith("'") and x.endswith("'")) and x[1:-1]) or x, sys.argv)
+#print 11111
+#print sys.argv
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
             description="Convert vimwiki markdown files to html.")
@@ -85,7 +94,12 @@ if __name__ == '__main__':
             "formatted file to be converted to html.")
     parser.add_argument("cssfile", help="The css file (with absolute path) to "
             "be referenced in the resulting html file.")
+    parser.add_argument("template_dir", help="")
+    parser.add_argument("template_name", help="")
+    parser.add_argument("template_ext", help="")
+    parser.add_argument("root_path", help="")
     ns = parser.parse_args()
+
 
     input_file = ns.input_file.read()
     input_filename = os.path.basename(ns.input_file.name)
@@ -93,6 +107,21 @@ if __name__ == '__main__':
     # first one -- the name.  Then give it a new .html extension
     output_filename = os.path.splitext(input_filename)[0] + '.html' 
     output_file_path = os.path.join(ns.outputdir, output_filename) 
+
+    template_file_path = os.path.join(ns.template_dir, ns.template_name + ns.template_ext)
+
+    template_file = open(template_file_path, 'r')
+    template_str = template_file.read()
+    template_file.close()
+
+    template_cell = '%(?P<cell>.+?)%'
+    cell_pat = re.compile(template_cell)
+    template_str = cell_pat.sub('{{\g<cell>}}',template_str)
+
+    template = Template(template_str)
+
+    root_path=ns.root_path
+    if root_path=='-':root_path='./'
 
     if ns.force or (os.path.exists(output_file_path) != True):
 
@@ -172,6 +201,7 @@ if __name__ == '__main__':
             pass
 
         renderer = VimwikiHtmlRenderer(HTML_TOC)
+
         to_html = Markdown(renderer, extensions= EXT_NO_INTRA_EMPHASIS | 
             EXT_TABLES | EXT_FENCED_CODE | EXT_AUTOLINK | 
             EXT_STRIKETHROUGH | EXT_SUPERSCRIPT) 
@@ -185,12 +215,13 @@ if __name__ == '__main__':
                 to_toc = Markdown(toc_renderer, 
                         extensions = EXT_NO_INTRA_EMPHASIS | EXT_AUTOLINK)
                 toc_content = to_toc.render(input_file)
+                print toc_content
             else:
-                toc_content = None
+                toc_content = ''
 
             out = open(output_file_path, 'w')
-            out.write(template.render({'toc_content':toc_content,
-                'main_content':main_content, 'cssfile':ns.cssfile,
+            out.write(template.render({'root_path':root_path,'encoding':'utf-8','toc':toc_content,
+                'content':main_content, 'css':ns.cssfile,
                 'title':renderer.percent_codes['title']}))
             out.close()
             print("Converted file to: " + output_file_path)
